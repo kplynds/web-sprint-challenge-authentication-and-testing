@@ -2,7 +2,7 @@ const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const db = require("../../data/dbConfig");
 const jwt = require("jsonwebtoken");
-const jwtSecret = require("../jwtSecret");
+const {jwtSecret} = require("../jwtSecret");
 
 const checkIfPayloadExists = (req, res, next) => {
   if (!req.body.username || !req.body.password) {
@@ -24,6 +24,35 @@ const checkIfUsernameIsUnique = async (req, res, next) => {
     }
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+const checkIfUsernameExistsIndb = async (req, res, next) => {
+  try {
+    const rows = await db("users")
+      .where({ username: req.body.username })
+      .orderBy("id")
+    if (rows.length) {
+      req.userData = rows[0]
+      next()
+    } else {
+      res.status(401).json("invalid credentials")
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const passwordCheck = (req, res, next) => {
+  try {
+    const verify = bcrypt.compareSync(req.body.password, req.userData.password);
+    if(verify) {
+      next();
+    } else {
+      res.status(401).json('invalid credentials');
+    }
+  } catch (error) {
+    res.status(500).json({ message:error.message });
   }
 };
 
@@ -88,8 +117,20 @@ router.post(
   }
 );
 
-router.post("/login", (req, res) => {
-  res.end("implement login, please!");
+router.post("/login", checkIfPayloadExists, checkIfUsernameExistsIndb, passwordCheck, async (req, res) => {
+  try {
+    const rows = await db("users")
+    .where({ username: req.body.username })
+    .orderBy("id")
+    const user = rows[0];
+    const token = makeToken(user);
+    res.status(200).json({
+      message: `welcome, ${user.username}`,
+      token
+    });
+  } catch (error) {
+    res.status(500).json({ message:error.message });
+  }
   /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
