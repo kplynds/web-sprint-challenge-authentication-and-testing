@@ -14,7 +14,7 @@ const checkIfPayloadExists = (req, res, next) => {
 
 const checkIfUsernameIsUnique = async (req, res, next) => {
   try {
-    const rows = db("users")
+    const rows = await db("users")
       .where({ username: req.body.username })
       .orderBy("id")
     if (!rows.length) {
